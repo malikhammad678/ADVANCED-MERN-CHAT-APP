@@ -1,8 +1,10 @@
 import React, { useState } from 'react'
 import assets from '../assets/assets'
+import { useAppContext } from '../context/AppContext'
 
 const Login = () => {
 
+  const { login } = useAppContext()
   const [currState, setCurrState] = useState("Sign up")
   const [fullName, setFullName] = useState("")
   const [email,setEmail] = useState("")
@@ -16,6 +18,13 @@ const Login = () => {
       setIsDataSubmitted(true)
       return
     }
+    const credentials = {
+      fullName,
+      email,
+      password,
+      bio
+    }
+    login(currState === 'Sign up' ? 'signup' : 'login', credentials)
   }
 
   return (
