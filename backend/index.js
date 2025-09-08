@@ -30,13 +30,13 @@ io.on("connection", (socket) => {
 })
 
 
-app.use(express.json({ limit:'4mb' }))
+app.use(express.json({ limit:'40mb' }))
 app.use(cors())
 
 app.use('/api/auth', userRouter)
 app.use('/api/message', mesageRouter)
 
-const PORT = process.env.PORT || 4000
+const PORT = process.env.PORT || 5000
 
 app.listen(PORT, () => {
     connectDB()

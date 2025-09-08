@@ -16,6 +16,10 @@ export const AppContextProvider = ({ children }) => {
     const [authUser,setAuthUser] = useState(null);
     const [onlineUsers,setOnlineUsers] = useState([])
     const [socket,setSocket] = useState(null)
+    const [messages,setMessages] = useState([])
+    const [users,setUsers] = useState([])
+    const [selectedUser, setSelectedUser] = useState(null)
+    const [unseenMessages, setUnseenMessages] = useState({})
 
     const fetchUser = async () => {
         try {
@@ -69,22 +73,76 @@ export const AppContextProvider = ({ children }) => {
         }
     }
 
-    // update user
-
     const updateProfile = async (body) => {
+      try {
+        const { data } = await axios.put('/api/auth/update-profile', body)
+        if(data.success){
+            setAuthUser(data.user)
+            toast.success(data.message)
+        }
+      } catch (error) {
+        toast.error(error.message)
+      }
+    }
+
+    const getUsers = async () => {
         try {
-            const { data } = await axios.put('/api/auth/update', body);
+            const { data } = await axios.get('/api/message/users')
             if(data.success){
-                setAuthUser(data.user)
-                toast.success(data.message)
-            } else {
-                toast.error(data.message)
+             setUsers(data.users)
+             setUnseenMessages(data.unseenMessages)
             }
         } catch (error) {
-            console.log(`Error in Updating User ${error.response?.data?.message}`)
-            toast.error(error.response?.data?.message)
+        toast.error(error.message)
         }
     }
+
+    const getMessages = async (id) => {
+        try {
+            const { data } = await axios.get(`/api/message/${id}`)
+            if(data.success){
+                setMessages(data.messages)
+            }
+        } catch (error) {
+        toast.error(error.message)
+        }
+    }
+
+    const sendMessages = async (messageData) => {
+      try {
+         const { data } = await axios.post(`/api/message/send/${selectedUser._id}`, messageData)
+         if(data.success){
+             setMessages((prevMessages) => [...prevMessages, data.newMessage])
+         }
+      } catch (error) {
+        toast.error(error.message)
+      }
+    }
+
+    const subscribeToMessages = async () => {
+        try {
+            if(!socket) return
+            socket.on("newMessage", (newMessage) => {
+                if(selectedUser && newMessage.senderId === selectedUser._id){
+                    newMessage.seen = true
+                    setMessages((prevMessages) => [...prevMessages, newMessage])
+                    axios.put(`/api/message/mark/${newMessage._id}`)
+                } else {
+                    setUnseenMessages((prevUnseenMessages) => ({
+                      ...prevUnseenMessages, [newMessage.senderId] : prevUnseenMessages[newMessage.senderId] ? prevUnseenMessages[newMessage.senderId] + 1 : 1
+                    }))
+                }
+            })
+        } catch (error) {
+        toast.error(error.message)
+        }
+    }
+
+    const unSubscribeToMessages = async () => {
+            if(socket) socket.off("newMessage");
+    } 
+
+ 
 
     // Connect socket function to handle socket connection and online users updates
 
@@ -102,6 +160,7 @@ export const AppContextProvider = ({ children }) => {
         })
     }
 
+
     const value = {
         axios,
         navigate,
@@ -110,7 +169,16 @@ export const AppContextProvider = ({ children }) => {
         socket,
         login,
         logout,
-        updateProfile
+        updateProfile,
+        users,
+        messages,
+        selectedUser,
+        getUsers,setMessages,
+        sendMessages,
+        setSelectedUser,
+        unseenMessages,
+        setUnseenMessages,
+        getMessages
     }
 
     useEffect(() => {
@@ -119,6 +187,11 @@ export const AppContextProvider = ({ children }) => {
         }
       fetchUser()
     },[])
+
+    useEffect(() => {
+      subscribeToMessages()
+      return () => unSubscribeToMessages()
+    },[socket, selectedUser])
 
     return <AppContext.Provider value={value}>
         {children}
